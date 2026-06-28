@@ -18,6 +18,7 @@
 
 ## Структура проекта
 
+```text
 nova_project/
 ├── config/
 │   └── train_config.py
@@ -38,6 +39,7 @@ nova_project/
 ├── main.py
 ├── .gitignore
 └── README.md
+```
 
 ---
 
@@ -86,6 +88,8 @@ FAISS + sentence-transformers/all-MiniLM-L6-v2
 ## Автор
 
 Дипломная работа — разработчик ИИ
+
+Вдохновлён идеей создания персонального ассистента, подобного Джарвису.
 
 ---
 
