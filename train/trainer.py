@@ -20,6 +20,9 @@ class Trainer:
         self.out_dir = config['out_dir']
         os.makedirs(self.out_dir, exist_ok=True)
 
+        # Итератор для корректного прохода по датасету (фикс #4)
+        self._train_iter = iter(self.train_loader)
+
         if config.get('resume', False):
             self.load_checkpoint()
 
@@ -47,59 +50,73 @@ class Trainer:
         else:
             print("Чекпоинт не найден, начинаем с нуля")
 
+    def _get_batch(self):
+        """Берёт следующий батч, перезапускает итератор при исчерпании (фикс #4)."""
+        try:
+            return next(self._train_iter)
+        except StopIteration:
+            self._train_iter = iter(self.train_loader)
+            return next(self._train_iter)
+
     def train_step(self, batch):
+        """Один forward+backward без шага оптимизатора (фикс #1)."""
         x, y = batch
         x, y = x.to(self.device), y.to(self.device)
-        self.optimizer.zero_grad()
         _, loss = self.model(x, targets=y)
+        loss = loss / self.config.get('gradient_accumulation_steps', 1)
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config['grad_clip'])
-        self.optimizer.step()
-        self.scheduler.step()
         return loss.item()
 
     @torch.no_grad()
     def eval_step(self):
+        """Валидация без лишних принтов (фикс #3)."""
         self.model.eval()
-        total_loss = 0
+        total_loss = 0.0
         eval_iters = self.config.get('eval_iters', 200)
-        print(f"🔍 Начинаем валидацию на {eval_iters} батчах...")
+
         for i, batch in enumerate(self.val_loader):
             if i >= eval_iters:
                 break
-            print(f"   Батч {i+1}/{eval_iters}...")
             x, y = batch
             x, y = x.to(self.device), y.to(self.device)
             _, loss = self.model(x, targets=y)
             total_loss += loss.item()
-        avg_loss = total_loss / eval_iters
+
+        avg_loss = total_loss / min(eval_iters, i + 1)
         self.model.train()
-        print(f"✅ Валидация завершена, val_loss = {avg_loss:.4f}")
         return avg_loss
 
     def train(self):
         total_iters = self.config['max_iters']
         eval_interval = self.config.get('eval_interval', 500)
         save_interval = self.config.get('save_interval', 1000)
-        log_interval = self.config.get('log_interval', 50)
+        log_interval  = self.config.get('log_interval', 50)
+        accum_steps   = self.config.get('gradient_accumulation_steps', 1)
 
-        # Первая валидация (теперь с принтами)
         val_loss = self.eval_step()
         print(f"Начальная валидационная ошибка: {val_loss:.4f}")
 
         pbar = tqdm(range(self.iter_num, total_iters), initial=self.iter_num, total=total_iters)
-        for step in pbar:
-            try:
-                batch = next(iter(self.train_loader))
-            except StopIteration:
-                self.train_loader = DataLoader(self.train_loader.dataset, batch_size=self.config['batch_size'], shuffle=True)
-                batch = next(iter(self.train_loader))
+        accum_loss = 0.0
 
-            loss = self.train_step(batch)
+        for step in pbar:
+            # --- накапливаем градиенты (фикс #1) ---
+            for micro_step in range(accum_steps):
+                batch = self._get_batch()
+                accum_loss += self.train_step(batch)
+
+            # --- один реальный шаг оптимизатора ---
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config['grad_clip'])
+            self.optimizer.step()
+            self.scheduler.step()
+            self.optimizer.zero_grad()
+
             self.iter_num += 1
+            avg_loss = accum_loss / accum_steps
+            accum_loss = 0.0
 
             if self.iter_num % log_interval == 0:
-                pbar.set_description(f"loss {loss:.4f}")
+                pbar.set_description(f"loss {avg_loss:.4f}")
 
             if self.iter_num % eval_interval == 0:
                 val_loss = self.eval_step()

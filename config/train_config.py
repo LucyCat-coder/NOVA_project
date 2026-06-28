@@ -16,7 +16,8 @@ config = {
     'eval_iters': 10,          # было 200, теперь 10 для быстрой проверки
     'save_interval': 1000,
     'log_interval': 50,
-
+    'gradient_accumulation_steps': 4,
+    
     # Система
     'device': 'cuda',
     'dtype': 'bfloat16',
