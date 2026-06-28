@@ -27,12 +27,15 @@ class Assistant:
 
     def generate(self, query: str, max_new_tokens=100, temperature=0.7,
                  top_k_docs=3, top_k_sampling=None):
-        # 1. RAG — ищем релевантные документы
-        context_chunks = self.retriever.retrieve(query, top_k=top_k_docs)
-        context = "\n".join(context_chunks)
+        # 1. RAG — только если есть документы и top_k_docs > 0
+        if top_k_docs > 0 and len(self.retriever.store.texts) > 0:
+            context_chunks = self.retriever.retrieve(query, top_k=top_k_docs)
+            context = "\n".join(context_chunks)
+            prompt = f"Контекст:\n{context}\n\nПользователь: {query}\nНова:"
+        else:
+            prompt = f"Пользователь: {query}\nНова:"
 
-        # 2. Формируем промпт
-        prompt = f"Контекст:\n{context}\n\nПользователь: {query}\nНова:"
+        # 2. Токенизируем
         input_ids = self.tokenizer.encode(prompt, disallowed_special=())
 
         # 3. Обрезаем если не влезает в block_size
@@ -49,7 +52,6 @@ class Assistant:
 
             next_logits = logits[:, -1, :] / temperature
 
-            # Опциональный top-k сэмплинг
             if top_k_sampling is not None:
                 values, _ = torch.topk(next_logits, top_k_sampling)
                 next_logits[next_logits < values[:, [-1]]] = float('-inf')
@@ -58,11 +60,14 @@ class Assistant:
             next_token = torch.multinomial(probs, num_samples=1)
             generated = torch.cat([generated, next_token], dim=1)
 
-            if next_token.item() == 50256:  # <|endoftext|>
+            if next_token.item() == 50256:
                 break
 
         # 5. Декодируем только ответ модели
         output_text = self.tokenizer.decode(generated[0].tolist())
         if "Нова:" in output_text:
-            return output_text.split("Нова:")[-1].strip()
+            answer = output_text.split("Нова:")[-1].strip()
+            if "Пользователь:" in answer:
+                answer = answer.split("Пользователь:")[0].strip()
+            return answer
         return output_text

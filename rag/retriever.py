@@ -11,5 +11,7 @@ class Retriever:
         self.store.add(docs, embeddings)
 
     def retrieve(self, query: str, top_k: int = 3) -> list[str]:
+        if len(self.store.texts) == 0:  # база пустая — не идём в faiss
+            return []
         q_emb = self.embedder.encode_queries([query])
         return self.store.search(q_emb, top_k)
