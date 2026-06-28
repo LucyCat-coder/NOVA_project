@@ -1,0 +1,45 @@
+# Виртуальное окружение
+.venv/
+venv/
+env/
+ENV/
+
+# Python кэш
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Директории с данными (большие файлы)
+data/
+!data/.gitkeep   # если хотите сохранить пустую папку в репозитории
+
+# Чекпоинты и выходные папки
+out/
+logs/
+wandb/
+
+# Генерация синтетики (большие JSONL и текстовые файлы)
+nova_knowledge.jsonl
+data/knowledge/
+data/synthetic/
+
+# Файлы IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Прочие временные файлы
+*.tmp
+*.log
+*.bak
