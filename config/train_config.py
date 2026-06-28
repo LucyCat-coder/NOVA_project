@@ -11,10 +11,10 @@ config = {
     'learning_rate': 3e-4,
     'weight_decay': 0.1,
     'grad_clip': 1.0,
-    'max_iters': 100000,
-    'eval_interval': 500,
+    'max_iters': 15000,
+    'eval_interval': 200,
     'eval_iters': 10,          # было 200, теперь 10 для быстрой проверки
-    'save_interval': 1000,
+    'save_interval': 500,
     'log_interval': 50,
     'gradient_accumulation_steps': 4,
     
