@@ -20,15 +20,26 @@ class Assistant:
         self.model.to(self.device)
         self.model.eval()
 
-        self.retriever = Retriever()
+        # Прогрев GPU
+        with torch.no_grad():
+            dummy = torch.zeros(1, 1, dtype=torch.long, device=self.device)
+            self.model(dummy)
+
+        self._retriever = None  # загружаем лениво, только когда нужен
+
+    @property
+    def retriever(self):
+        if self._retriever is None:
+            self._retriever = Retriever()
+        return self._retriever
 
     def index_documents(self, docs: list[str]):
         self.retriever.index_documents(docs)
 
     def generate(self, query: str, max_new_tokens=100, temperature=0.7,
                  top_k_docs=3, top_k_sampling=None):
-        # 1. RAG — только если есть документы и top_k_docs > 0
-        if top_k_docs > 0 and len(self.retriever.store.texts) > 0:
+        # 1. RAG — только если есть документы и retriever инициализирован
+        if top_k_docs > 0 and self._retriever is not None and len(self._retriever.store.texts) > 0:
             context_chunks = self.retriever.retrieve(query, top_k=top_k_docs)
             context = "\n".join(context_chunks)
             prompt = f"Контекст:\n{context}\n\nПользователь: {query}\nНова:"

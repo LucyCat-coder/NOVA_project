@@ -6,10 +6,13 @@ from config.train_config import config
 
 assistant = Assistant('out/checkpoint.pt', config)
 
-assistant.index_documents([
-    "Градиентный спуск — метод оптимизации, который итеративно обновляет параметры модели в направлении антиградиента функции потерь.",
-    "Нейронная сеть обучается путём минимизации функции потерь с помощью обратного распространения ошибки.",
-    "PyTorch — популярный фреймворк для глубокого обучения с поддержкой динамических вычислительных графов.",
-])
+questions = [
+    "Что такое градиентный спуск?",
+    "Как работает Docker?",
+    "Объясни что такое Git",
+]
 
-print(assistant.generate("Что такое градиентный спуск?", max_new_tokens=200, temperature=0.3))
+for q in questions:
+    print(f"Вопрос: {q}")
+    print(f"Ответ: {assistant.generate(q, max_new_tokens=350, temperature=0.3, top_k_docs=0)}")
+    print("---")

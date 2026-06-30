@@ -20,11 +20,19 @@ class Trainer:
         self.out_dir = config['out_dir']
         os.makedirs(self.out_dir, exist_ok=True)
 
-        # Итератор для корректного прохода по датасету (фикс #4)
         self._train_iter = iter(self.train_loader)
 
         if config.get('resume', False):
             self.load_checkpoint()
+            # Сбрасываем scheduler если нужно
+            if config.get('reset_scheduler', False):
+                self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+                    self.optimizer, T_max=config['max_iters']
+                )
+                # Восстанавливаем LR оптимизатора
+                for pg in self.optimizer.param_groups:
+                    pg['lr'] = config['learning_rate']
+                print(f"Scheduler сброшен, LR = {config['learning_rate']}")
 
     def save_checkpoint(self):
         ckpt = {
@@ -51,7 +59,6 @@ class Trainer:
             print("Чекпоинт не найден, начинаем с нуля")
 
     def _get_batch(self):
-        """Берёт следующий батч, перезапускает итератор при исчерпании (фикс #4)."""
         try:
             return next(self._train_iter)
         except StopIteration:
@@ -59,7 +66,6 @@ class Trainer:
             return next(self._train_iter)
 
     def train_step(self, batch):
-        """Один forward+backward без шага оптимизатора (фикс #1)."""
         x, y = batch
         x, y = x.to(self.device), y.to(self.device)
         _, loss = self.model(x, targets=y)
@@ -69,7 +75,6 @@ class Trainer:
 
     @torch.no_grad()
     def eval_step(self):
-        """Валидация без лишних принтов (фикс #3)."""
         self.model.eval()
         total_loss = 0.0
         eval_iters = self.config.get('eval_iters', 200)
@@ -100,12 +105,10 @@ class Trainer:
         accum_loss = 0.0
 
         for step in pbar:
-            # --- накапливаем градиенты (фикс #1) ---
             for micro_step in range(accum_steps):
                 batch = self._get_batch()
                 accum_loss += self.train_step(batch)
 
-            # --- один реальный шаг оптимизатора ---
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config['grad_clip'])
             self.optimizer.step()
             self.scheduler.step()
