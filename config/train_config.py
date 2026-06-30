@@ -8,7 +8,7 @@ config = {
 
     # Обучение
     'batch_size': 8,
-    'learning_rate': 3e-4,
+    'learning_rate': 5e-5,
     'weight_decay': 0.1,
     'grad_clip': 1.0,
     'max_iters': 60000,
@@ -17,8 +17,8 @@ config = {
     'save_interval': 500,
     'log_interval': 50,
     'gradient_accumulation_steps': 4,
-    'reset_scheduler': True, 
-    
+    'reset_scheduler': True,
+
     # Система
     'device': 'cuda',
     'dtype': 'bfloat16',
